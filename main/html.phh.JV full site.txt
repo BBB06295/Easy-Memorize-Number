@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Easy Memorize Numbers</title>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #0b1e3a;
+      color: #fff;
+      padding: 20px;
+    }
+    .container { max-width: 400px; margin: auto; text-align: center; }
+    h1 { font-size: 24px; margin-bottom: 20px; }
+    input, button {
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      margin: 10px 0;
+      font-size: 16px;
+    }
+    input { width: 100%; }
+    button {
+      background-color: #1c3f6e;
+      color: white;
+      cursor: pointer;
+    }
+    .number-box {
+      font-size: 32px;
+      margin: 20px 0;
+    }
+    .reward, .leaderboard, .referral, .profile-section {
+      margin-top: 40px;
+      padding: 20px;
+      background: #112a4c;
+      border-radius: 12px;
+    }
+    .reward.hidden { display: none; }
+    .timer { font-size: 20px; margin-top: 10px; }
+    .referral-code {
+      background: #1c3f6e;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+    .level-display {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .confetti {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      background: url('https://media.giphy.com/media/3o6ZsYYGrfJ2lraP5W/giphy.gif') center center / cover no-repeat;
+      z-index: 9999;
+    }
+    .avatar-options img {
+      width: 60px;
+      height: 60px;
+      margin: 5px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+    }
+    .avatar-options img.selected {
+      border-color: #1c3f6e;
+    }
+    .gift-amount {
+      font-size: 28px;
+      font-weight: bold;
+      color: #00ffcc;
+      margin: 10px 0;
+    }
+  </style>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>Easy Memorize Numbers</h1>
+
+    <!-- Profile Customization -->
+    <div class="profile-section">
+      <h2>👤 Customize Profile</h2>
+      <input type="text" id="username" placeholder="Choose Username" />
+      <div class="avatar-options">
+        <img src="https://i.pravatar.cc/60?img=1" onclick="selectAvatar(this)" />
+        <img src="https://i.pravatar.cc/60?img=2" onclick="selectAvatar(this)" />
+        <img src="https://i.pravatar.cc/60?img=3" onclick="selectAvatar(this)" />
+        <img src="https://i.pravatar.cc/60?img=4" onclick="selectAvatar(this)" />
+      </div>
+    </div>
+
+    <!-- OTP Verification -->
+    <div>
+      <input type="text" id="phone" placeholder="Enter Mobile Number" />
+      <button id="send-otp-btn" onclick="sendOTP()">Send OTP</button>
+      <input type="text" id="otp" placeholder="Enter OTP" />
+      <button onclick="verifyOTP()">Verify</button>
+    </div>
+
+    <!-- Wallet Section -->
+    <div>
+      <button onclick="connectWallet()">Connect Wallet</button>
+      <p id="wallet-status">Wallet not connected</p>
+    </div>
+
+    <!-- Game Screen -->
+    <div class="level-display" id="level-display"></div>
+    <div class="number-box" id="number-box"></div>
+    <div class="timer" id="timer"></div>
+    <input type="text" id="guess" placeholder="Enter numbers" />
+    <button onclick="checkAnswer()">Submit</button>
+
+    <!-- Reward Section -->
+    <div class="reward hidden" id="reward">
+      <h2>🎉 Gift Claimed!</h2>
+      <div class="gift-amount" id="gift-amount">₹0</div>
+      <p>Congratulations on winning your reward!</p>
+      <button onclick="goHome()">Return Home</button>
+      <button onclick="withdrawGift()">Withdraw to Wallet</button>
+    </div>
+
+    <!-- Leaderboard Section -->
+    <div class="leaderboard">
+      <h2>🏆 Leaderboard</h2>
+      <ol>
+        <li>King1 - 25 Wins</li>
+        <li>King2 - 18 Wins</li>
+        <li>King3 - 10 Wins</li>
+      </ol>
+    </div>
+
+    <!-- Referral Section -->
+    <div class="referral">
+      <h2>💌 Invite & Earn</h2>
+      <p>Invite friends and get ₹5 for each!</p>
+      <div class="referral-code">REF12345</div>
+      <button onclick="shareCode()">Share Code</button>
+    </div>
+  </div>
+
+  <audio id="reward-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3"></audio>
+
+  <script>
+    let selectedAvatar = "";
+
+    function selectAvatar(img) {
+      document.querySelectorAll(".avatar-options img").forEach(i => i.classList.remove("selected"));
+      img.classList.add("selected");
+      selectedAvatar = img.src;
+    }
+
+    function connectWallet() {
+      alert("Wallet connect logic here");
+    }
+
+    function shareCode() {
+      alert("Referral code shared!");
+    }
+
+    function goHome() {
+      alert("Going back to home...");
+    }
+
+    function checkAnswer() {
+      alert("Check answer logic...");
+    }
+
+    function withdrawGift() {
+      const balance = 300;
+      const deduction = 49;
+      const minBalance = 250;
+      const newBalance = balance - deduction;
+
+      if (newBalance >= minBalance) {
+        animateGift(149);
+        document.getElementById("reward").classList.remove("hidden");
+        document.getElementById("reward-sound").play();
+      } else {
+        alert("You need to keep at least ₹250 in your wallet after deduction.");
+      }
+    }
+
+    function animateGift(targetAmount) {
+      let current = 0;
+      const step = Math.ceil(targetAmount / 60);
+      const display = document.getElementById("gift-amount");
+
+      const interval = setInterval(() => {
+        current += step;
+        if (current >= targetAmount) {
+          current = targetAmount;
+          clearInterval(interval);
+        }
+        display.textContent = `₹${current}`;
+      }, 20);
+    }
+
+    // Firebase OTP Logic
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('send-otp-btn', {
+      size: 'invisible',
+      callback: () => sendOTP()
+    });
+
+    function sendOTP() {
+      const phone = document.getElementById("phone").value;
+      const appVerifier = window.recaptchaVerifier;
+
+      firebase.auth().signInWithPhoneNumber("+91" + phone, appVerifier)
+        .then((confirmationResult) => {
+          window.confirmationResult = confirmationResult;
+          alert("OTP sent to your phone.");
+        })
+        .catch((error) => {
+          console.error("Error sending OTP:", error);
+          alert("Error sending OTP.");
+        });
+    }
+
+    function verifyOTP() {
+      const code = document.getElementById("otp").value;
+      window.confirmationResult.confirm(code)
+        .then((result) => {
+          const user = result.user;
+          alert("Phone verified successfully!");
+        })
+        .catch((error) => {
+          console.error("Invalid OTP:", error);
+          alert("Invalid OTP");
+        });
+    }
+  </script>
+</body>
+</html>
